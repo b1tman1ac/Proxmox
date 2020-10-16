@@ -19,14 +19,14 @@ These are my goals for this project.
 
 <!-- TOC -->
 
-1. [ ] [Initial Install](#initialinstall)
-2. [ ] [Base Config](#baseconfig)
-3. [ ] [Setting up Networking](#networking)
-4. [ ] [Building ZFS Storage](#zfs)
-5. [ ] [Securing Proxmox](#security)
-6. [ ] [Deploying the first VM :: PFSense](#pfsense)
-7. [ ] [Deploying the first Container :: NAS](#nas)
-8. [ ] [To Do](#todo)
+1. [ ] [1. Initial Install](#initialinstall)
+2. [ ] [2. Base Config](#baseconfig)
+3. [ ] [3. Setting up Networking](#networking)
+4. [ ] [4. Building ZFS Storage](#zfs)
+5. [ ] [5. Securing Proxmox](#security)
+6. [ ] [6. Deploying the first VM :: PFSense](#pfsense)
+7. [ ] [7. Deploying the first Container :: NAS](#nas)
+8. [ ] [8. To Do](#todo)
 
 <!-- /TOC -->
 
