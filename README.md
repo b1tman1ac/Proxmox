@@ -19,7 +19,7 @@ These are my goals for this project.
 
 <!-- TOC -->
 
-1. [ ] [1. Initial Install](#initialinstall)
+1. [x] [1. Initial Install](#initialinstall)
 2. [ ] [2. Base Config](#baseconfig)
 3. [ ] [3. Setting up Networking](#networking)
 4. [ ] [4. Building ZFS Storage](#zfs)
