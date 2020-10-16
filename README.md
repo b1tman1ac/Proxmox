@@ -1,4 +1,4 @@
-# Proxmox Home Lab Build
+# ![Proxmox](images/2020/10/proxmox.png) Proxmox Home Lab Build
 
 A how to guide to plan and track a Proxmox home lab build. This guide was initially written for Proxmox 6.2 but will be kept up to date as necessary.
 
@@ -12,7 +12,7 @@ These are my goals for this project.
 - **Redundant Storage,** *In case of drive failure*
 - **Offsite/Offhost Backups,** *In case of complete host failure*
 - **Monitoring & Alerts,** *to know whats going on*
-- **Automated,** *Automate as much as possible*
+- **Automated,** *Automate the world*
 
 
 # The Plan
@@ -34,7 +34,163 @@ These are my goals for this project.
 
 ## 1. Initial Install <a name="initialinstall"></a>
 
+### 1.1 Hardware
+[Proxmox Official System Requirements][728bcac8]
+
+  [728bcac8]: https://www.proxmox.com/en/proxmox-ve/requirements "Proxmox Official System Requirements"
+
+  > ### Recommended Hardware
+  >  - Intel EMT64 or AMD64 with Intel VT/AMD-V CPU flag.
+  >  - Memory, minimum 2 GB for OS and Proxmox VE services. Plus designated memory for guests. For Ceph or ZFS additional memory is required, approximately 1 GB memory for every TB used storage.
+  >  - Fast and redundant storage, best results with SSD disks.
+  >  - OS storage: Hardware RAID with batteries protected write cache (“BBU”) or non-RAID with ZFS and SSD cache.
+  >  - VM storage: For local storage use a hardware RAID with battery backed write cache (BBU) or non-RAID for ZFS. Neither ZFS nor Ceph are compatible with a hardware RAID controller. Shared and distributed storage is also possible.
+  >  - Redundant Gbit NICs, additional NICs depending on the preferred storage technology and cluster setup – 10 Gbit and higher is also supported.
+  >  - For PCI(e) passthrough a CPU with VT-d/AMD-d CPU flag is needed.
+
+In addition to the official system requirements we have to take into account our use of ZFS as a file storage system so this should be noted as well.
+
+![ZFS on Linux](images/2020/10/zfs-on-linux.png)
+
+[ZFS on Linux Hardware Recommendations][3b4c6a09]
+
+  [3b4c6a09]: https://pve.proxmox.com/wiki/ZFS_on_Linux#_hardware "ZFS on Linux Hardware Recommendations"
+
+  >  ZFS depends heavily on memory, so you need at least 8GB to start. In practice, use as much you can get for your hardware/budget. To prevent data corruption, we recommend the use of high quality ECC RAM.
+
+  >  If you use a dedicated cache and/or log disk, you should use an enterprise class SSD (e.g. Intel SSD DC S3700 Series). This can increase the overall performance significantly.
+
+  >  Important	Do not use ZFS on top of hardware controller which has its own cache management. ZFS needs to directly communicate with disks. An HBA adapter is the way to go, or something like LSI controller flashed in “IT” mode.
+
+  >  If you are experimenting with an installation of Proxmox VE inside a VM (Nested Virtualization), don’t use virtio for disks of that VM, since they are not supported by ZFS. Use IDE or SCSI instead (works also with virtio SCSI controller type).
+
+A word on choosing an appropriate boot drive. While ESXI suggests using a USB key or SD Card to boot its minimal OS that is primarly because it loads the OS in memory after the initial boot and limits all writes to the boot drive after its loaded. FreeNAS as well, has been optimized to run on USB keys and limits writes to the boot drive. Proxmox, on the other hand, is based on Debian and has not optimized the OS for use in USB keys as a boot drive.
+
+So you have a choice . . .
+
+  1. Install Proxmox to a storage medium that is optimized for lots of writes. Example Harddrive, high endurance SSD/USB key.
+  2. If installing to standard USB key make sure you have a mirrored boot drive so that when your boot drive fails (and it will) you have a backup ready to take over.
+  3. Both 1 & 2
+
+My choice in this regard is #3 because I have lots of harddrives in my server and I can use two in a mirrored vdev ZFS RAID1 Pool.
+
+![Cisco C240 M4L](images/2020/10/cisco-c240-m4l.png)
+
+|| Hardware |
+|---|---|
+|Server | Cisco C240 M4L |
+|CPU | 2 x E5-2620 v3 (12 cores / 24 Threads)  |
+|RAM   |  64GB ECC |
+|Boot Drive  | 2 x 2TB  |
+|Data Drive | 10 x 2TB  |
+| HBA  | CISCO UCSC-MRAID12G  |
+| Network  | 2 x 10GE, 2 x 1GE + IPMI|
+| GPU | None  |
+
+A note on the RAID card. I have set the drives to JBOD, disabled all caching & turned off the cards BIOS in its settings so its operating in HBA mode. Need to test whether or not the Host OS can see the drives directly without a cache in between as this, generally speaking, isn't a recommended card for ZFS. However, if I try to put in any 3rd party card that the bios doesn't recognize (re: non Cisco) the server will override the fan policy & turn the fans on full blast which converts my Home Lab Build into a Cessna on takeoff.
+
+![Cessna on Takeoff](images/2020/10/cessna-on-takeoff.png)
+
+### 1.2 Installation
+
+I'm not going to re-write the installation process here as the official documentation is good in this regard and if not there are lots of resources on the web to help. Its pretty easy however and can be summed up by . . .
+
+1. Download the ISO, https://www.proxmox.com/en/downloads/category/iso-images-pve
+2. Write the ISO to a bootable USB flash drive using a tool like [Etcher][f77bac93]
+3. Insert the USB key into your server and follow the prompts
+
+[f77bac93]: https://etcher.io/ "Etcher"
+
+_Although in my case I use the KVM on the IPMI port of my server to load the ISO to a virtual drive and boot the server off of that :D_
+
+[Prepare Installation Media][be7d23ee]
+
+  [be7d23ee]: https://pve.proxmox.com/pve-docs/pve-admin-guide.html#installation_prepare_media "Prepare Installation Media"
+
+[Using the Proxmox VE Installer][9dc28777]
+
+  [9dc28777]: https://pve.proxmox.com/pve-docs/pve-admin-guide.html#installation_installer "Using the Proxmox VE Installer"
+
+Some Notes:
+
+- Choose, `Install Proxmox VE` :)
+- Because I am installing a ZFS root using a Mirrored or RAID1 setup I'll click `Options`, select `zfs (RAID1)` as my filesystem & pick my two boot drives.
+- I leave the `advanced options` at the default.
+
+_I know I am wasting a ton of space by not partitioning my boot disk into separate partitions for the Host, VM's, Containers & data but my goal is to keep things simple. So if I need to perform a complete rebuild or transfer my system to another host I can easily reinstall Proxmox on a new drive, resetup the base config/networking, connect my data drives, import my pools, VM's & containers and I'm pretty much back up and running from a boot drive failure._
+
+- the rest is pretty straight forward
+
 ## 2. Base Config <a name="baseconfig"></a>
+
+Great, you still with me :) This is where the fun part starts.
+
+### 2.1 Confirm remote connectivity
+
+Log in via https and ssh
+
+https://<server_ip>:8006
+
+AND
+
+ssh root@<server_ip>
+
+type in credentials:
+  - Username: root
+  - Password: <the_password_you_choose_during_install>
+
+Assuming you were able to log in then you should be good at this point to disconnect the monitor, keyboard and mouse from the server and complete the rest of the steps remotely.
+
+If you weren't able to connect you need to figure out why, I would suggest to try pinging the <server_ip> and if it responds the problem may be the username/password. If it doesn't respond then issue is most likely network related, start by tracing the physical cable and check your network config after that.
+
+Some useful links:
+
+https://pve.proxmox.com/pve-docs/pve-admin-guide.html#sysadmin_network_configuration
+
+https://unix.stackexchange.com/questions/128439/good-detailed-explanation-of-etc-network-interfaces-syntax
+
+https://ubuntu.com/blog/if-youre-still-using-ifconfig-youre-living-in-the-past
+
+Some useful commands:
+
+`systemctl status networking`  
+`systemctl restart networking`  
+`ip address show`  
+`ip link show`  
+
+to make changes to the network Config . . .
+
+`nano /etc/network/interfaces` _update config, save the file, then_  
+`systemctl restart networking` _&_  
+`ip address show` _to check if the changes had an effect_  
+
+
+### 2.2 Update Package respositories and perform an initial update
+
+Because this is a Home Lab and not enterprise you need to update the package repos to reflect this.
+
+`nano /etc/apt/sources.list`
+
+Add the no subscription repo . . .
+
+> \# PVE pve-no-subscription repository provided by proxmox.com,
+> \# NOT recommended for production use
+> deb http://download.proxmox.com/debian/pve buster pve-no-subscription
+
+`nano /etc/apt/sources.list.d/pve-enterprise.list`
+
+comment out the line in that file like this otherwise any apt-get update will fail because you don't have access to that repo . . .
+
+> \#deb https://enterprise.proxmox.com/debian/pve buster pve-enterprise  
+
+You should now be able to update either via the gui or command line
+
+`apt-get update`  
+`apt-get dist-upgrade`  
+
+reference : https://pve.proxmox.com/pve-docs/pve-admin-guide.html#_system_software_updates
+
+### 2.3
 
 ## 3. Setting up Networking <a name="networking"></a>
 
