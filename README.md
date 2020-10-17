@@ -211,17 +211,17 @@ reference:: https://pve.proxmox.com/pve-docs/pve-admin-guide.html#_time_synchron
 
 ### 2.4 Get Postfix to Send Notifications (Email) Externally
 
-####Install libsasl2-modules  
+###Install libsasl2-modules  
 `apt install libsasl2-modules`  
 
-####Backup your current postfix configuration  
+###Backup your current postfix configuration  
 `cp /etc/postfix/main.cf /etc/postfix/main.cf.bak`  
 
-####Modify your postfix configuration as follows:
+###Modify your postfix configuration as follows:
 `nano /etc/postfix/main.cf`  
-####Modify the line:  
+###Modify the line:  
 `relayhost = [smtp.gmail.com]:587`  
-####Add the following lines to the end:  
+###Add the following lines to the end:  
 ```
 smtp_sender_dependent_authentication = yes
 
@@ -237,33 +237,33 @@ smtp_use_tls = yes
 smtp_tls_CAfile = /etc/ssl/certs/ca-certificates.crt  
 ```
 
-####Create your authorization hash file:  
+###Create your authorization hash file:  
 >NOTE: if you have MFA configured you'll need to create an App password for your Gmail account and add that below as yourpassword  
 https://support.google.com/accounts/answer/185833?hl=en
 
 `echo [smtp.gmail.com]:587 your_username@gmail.com:yourpassword > /etc/postfix/sasl_auth.hash`  
 
-####Create your sender_relayhost file (this makes sure that you always use your gmail as the sender:  
+###Create your sender_relayhost file (this makes sure that you always use your gmail as the sender:  
 `echo your_username@gmail.com [smtp.gmail.com]:587 > /etc/postfix/sender_relayhost.hash`  
 
-####Now postmap the files:  
+###Now postmap the files:  
 `postmap /etc/postfix/sender_relayhost.hash`  
 `postmap /etc/postfix/sasl_auth.hash`  
 
-####Make sure to make your password only readable by root:  
+###Make sure to make your password only readable by root:  
 `chmod 400 /etc/postfix/sasl_auth.*` 
 
-####Restart Postfix:  
+###Restart Postfix:  
 `postfix reload` OR `systemctl restart postfix.service`  
 
-####Test:  
+###Test:  
 `systemctl status postfix.service`  
 `echo "Test mail from postfix" | mail -s "Test Postfix" test@test.com`  
 
-####Test from PVE:  
+###Test from PVE:  
 `echo "test" | /usr/bin/pvemailforward`  
 
-####Logs:  
+###Logs:  
 `/var/log/mail.warn`  
 `/var/log/mail.info`  
 
