@@ -162,7 +162,7 @@ to make changes to the network Config . . .
 
 `nano /etc/network/interfaces` _update config, save the file, then_  
 `systemctl restart networking` _&_  
-`ip address show` _to check if the changes had an effect_  
+`ip address show` _to check if the changes had an effect & **check remote connectivity again**_  
 
 
 ### 2.2 Update Package respositories and perform an initial update
