@@ -268,7 +268,7 @@ https://support.google.com/accounts/answer/185833?hl=en
 `/var/log/mail.info`  
 
 References:  
-https://github.com/ShoGinn/homelab/wiki/Proxmox-PostFix---Email
+https://github.com/ShoGinn/homelab/wiki/Proxmox-PostFix---Email  
 https://forum.proxmox.com/threads/get-postfix-to-send-notifications-email-externally.59940/
 
 ### 2.5 
