@@ -185,12 +185,93 @@ comment out the line in that file like this otherwise any apt-get update will fa
 
 You should now be able to update either via the gui or command line
 
-`apt-get update`  
-`apt-get dist-upgrade`  
+`apt-get update && apt-get dist-upgrade -y`  
+
+Perform a reboot...'just in case'  
+**reboot**
 
 reference : https://pve.proxmox.com/pve-docs/pve-admin-guide.html#_system_software_updates
 
-### 2.3
+### 2.3 Update NTP
+
+`nano /etc/systemd/timesyncd.conf`  
+
+_uncomment all of the lines and update the first line to look like this but pick your own time servers to sync too_
+
+>[Time]  
+NTP=time.nrc.ca time.chu.nrc.ca ntp.torix.ca  
+
+Restart the synchronization service  
+`systemctl restart systemd-timesyncd`  
+
+Verify that your newly configured NTP servers are used by checking the journal  
+`journalctl --since -1h -u systemd-timesyncd`  
+
+reference:: https://pve.proxmox.com/pve-docs/pve-admin-guide.html#_time_synchronization  
+
+### 2.4 Get Postfix to Send Notifications (Email) Externally
+
+######Install libsasl2-modules  
+`apt install libsasl2-modules`  
+
+######Backup your current postfix configuration  
+`cp /etc/postfix/main.cf /etc/postfix/main.cf.bak`  
+
+######Modify your postfix configuration as follows:
+`nano /etc/postfix/main.cf`  
+######Modify the line:  
+`relayhost = [smtp.gmail.com]:587`  
+######Add the following lines to the end:  
+```
+smtp_sender_dependent_authentication = yes
+
+sender_dependent_relayhost_maps = hash:/etc/postfix/sender_relayhost.hash
+smtp_sasl_auth_enable = yes
+
+smtp_sasl_password_maps = hash:/etc/postfix/sasl_auth.hash
+
+smtp_sasl_security_options = noanonymous
+
+smtp_use_tls = yes
+
+smtp_tls_CAfile = /etc/ssl/certs/ca-certificates.crt  
+```
+
+######Create your authorization hash file:  
+>NOTE: if you have MFA configured you'll need to create an App password for your Gmail account and add that below as yourpassword  
+https://support.google.com/accounts/answer/185833?hl=en
+
+`echo [smtp.gmail.com]:587 your_username@gmail.com:yourpassword > /etc/postfix/sasl_auth.hash`  
+
+######Create your sender_relayhost file (this makes sure that you always use your gmail as the sender:  
+`echo your_username@gmail.com [smtp.gmail.com]:587 > /etc/postfix/sender_relayhost.hash`  
+
+######Now postmap the files:  
+`postmap /etc/postfix/sender_relayhost.hash`  
+`postmap /etc/postfix/sasl_auth.hash`  
+
+######Make sure to make your password only readable by root:  
+`chmod 400 /etc/postfix/sasl_auth.*` 
+
+######Restart Postfix:  
+`postfix reload` OR `systemctl restart postfix.service`  
+
+######Test:  
+`systemctl status postfix.service`  
+`echo "Test mail from postfix" | mail -s "Test Postfix" test@test.com`  
+
+######Test from PVE:  
+`echo "test" | /usr/bin/pvemailforward`  
+
+######Logs:  
+`/var/log/mail.warn`  
+`/var/log/mail.info`  
+
+References:  
+https://github.com/ShoGinn/homelab/wiki/Proxmox-PostFix---Email
+https://forum.proxmox.com/threads/get-postfix-to-send-notifications-email-externally.59940/
+
+### 2.5 
 
 ## 3. Setting up Networking <a name="networking"></a>
 
