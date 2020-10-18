@@ -142,10 +142,10 @@ type in credentials:
   - Username: root
   - Password: <the_password_you_choose_during_install>
 
-###### 2.1.2 You were able to successfully logged in  
+###### 2.1.2a You were able to successfully logged in  
 Assuming you were able to log in then you should be good at this point to disconnect the monitor, keyboard and mouse from the server and complete the rest of the steps remotely.
 
-###### 2.1.2 You were NOT able to successfully logged in  
+###### 2.1.2b You were NOT able to successfully logged in  
 If you weren't able to connect you need to figure out why, I would suggest to try pinging the <server_ip> and if it responds the problem may be the username/password. If it doesn't respond then issue is most likely network related, start by tracing the physical cable and check your network config after that.
 
 Some useful links:
@@ -344,7 +344,7 @@ And test
 
 References:  
 https://api.slack.com/messaging/webhooks  
-https://metacpan.org/pod/Slack::WebHook
+https://metacpan.org/pod/Slack::WebHook  
 https://forum.proxmox.com/threads/proxmox-alert-emails-can-you-automatically-cc-people.53332/  
 
 ###### 2.6
