@@ -310,7 +310,7 @@ Add the following lines to the file . . .
 > $ENV{'PATH'} = '/sbin:/bin:/usr/sbin:/usr/bin';  
 > 
 > my $hook = Slack::WebHook->new( 
-               url => 'https://hooks.slack.com/services/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'  
+               url => 'https://hooks.slack.com/services/fdsafdsfdsfds/ffdsasdfsdfsdf'  
 > );  
 >  
 >  my $stdin_h = do { local $/; <STDIN> };  
