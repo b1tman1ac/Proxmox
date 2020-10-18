@@ -347,7 +347,6 @@ https://api.slack.com/messaging/webhooks
 https://metacpan.org/pod/Slack::WebHook  
 https://forum.proxmox.com/threads/proxmox-alert-emails-can-you-automatically-cc-people.53332/  
 
-###### 2.6
 
 ## 3. Setting up Networking <a name="networking"></a>
 
