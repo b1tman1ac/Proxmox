@@ -190,6 +190,8 @@ comment out the line in that file like this otherwise any apt-get update will fa
 
 > \#deb https://enterprise.proxmox.com/debian/pve buster pve-enterprise  
 
+reference : https://pve.proxmox.com/wiki/Package_Repositories#sysadmin_no_subscription_repo
+
 ###### 2.2.3 Test updating via the Gui and cli  
 You should now be able to update either via the gui or command line
 
@@ -347,8 +349,169 @@ https://api.slack.com/messaging/webhooks
 https://metacpan.org/pod/Slack::WebHook  
 https://forum.proxmox.com/threads/proxmox-alert-emails-can-you-automatically-cc-people.53332/  
 
-
 ## 3. Setting up Networking <a name="networking"></a>
+
+### 3.0 Proxmox Networking Primer
+
+If you really want to keep the network simple the basic linux bridge is perfectly fine. In fact in recent versions of Linux & Proxmox actually has most of the functionality you would need/want.  However the goals of this Homelab is not only to be _Simple_ but also _Modular_, _Secure_, _extensible_ & maybe optimized for _Speed_. For that we need Open vSwitch.
+
+To Sum Up . . .  
+
+Linux Bridge = LAN/Switch  
+Linux Bond = Port-Channel  
+Linux VLAN = Virtual LAN  
+Linux Tap = Virtual Interface  
+
+**OVS Bridge** = LAN/Switch with one or more _Ports_.  
+**OVS Port** = A _Port_ in a _Bridge_. A _Port_ can have 1 or more _Interfaces_. A _Port_ with more then 1 _Interface_ is a Bonded _Port_.  
+**OVS Interface** = An _Interface_ in a _Port_. An _Interface_ can be many types but the most basic ones are _System_, _Internal_ & _tap_.  
+
+See `man ovs-vsctl` or `man ovs-vswitchd.conf.db` or `man ovs-vswitchd` for more details, it's really well documented.  
+
+**References:**  
+https://github.com/openvswitch/ovs/blob/master/debian/openvswitch-switch.README.Debian
+
+###### 3.0.1 Let's go over the Basic Proxmox Linux Networking stack  
+
+
+###### 3.0.1.1 Linux Bridge's
+Layer 2 Switch connecting one or more physical or virtual interfaces together. Bridges direct traffic to the appropriate interfaces based on Mac Addresses so traffic goes directly from one host to another through the bridge.  
+
+_Default Configuration using a Bridge via Proxmox Admin Guide 3.3.4_
+![default-network-config](images/2020/10/default-network-config.png)
+
+_Default Linux Bridge Example_  
+_via the CLI_  
+`nano /etc/network/interfaces`  
+> auto eno1  
+> iface eno1 inet manual  
+> 
+> auto vmbr0  
+> iface vmbr0 inet manual  
+> &nbsp;&nbsp;&nbsp;&nbsp;bridge_ports eno1  
+> &nbsp;&nbsp;&nbsp;&nbsp;bridge_stp off  
+> &nbsp;&nbsp;&nbsp;&nbsp;bridge_fd 0
+
+_Default Linux Bridge Example with a static ip for the host_
+> auto eno1  
+> iface eno1 inet manual  
+> 
+> auto vmbr0  
+> iface vmbr0 inet static  
+> &nbsp;&nbsp;&nbsp;&nbsp;address 192.168.10.2  
+> &nbsp;&nbsp;&nbsp;&nbsp;netmask 255.255.255.0  
+> &nbsp;&nbsp;&nbsp;&nbsp;gateway 192.168.10.1  
+> &nbsp;&nbsp;&nbsp;&nbsp;bridge_ports eno1  
+> &nbsp;&nbsp;&nbsp;&nbsp;bridge_stp off  
+> &nbsp;&nbsp;&nbsp;&nbsp;bridge_fd 0  
+
+_via the GUI_  
+![Linux-Bridge-GUI-Example](images/2020/10/linux-bridge-gui-example.png)
+
+How to show the Mac Addresses of the interfaces on the bridge . . . 
+`bridge fdb show`  
+> 01:00:5e:00:00:fb dev rename4 master vmbr0  
+01:00:5e:7f:ff:fa dev eno1 vlan 1 master vmbr0 permanent  
+01:00:5e:7f:ff:fb dev eno1 master vmbr0 permanent  
+40:2c:ff:ec:f8:ff dev eno1 master vmbr0  
+00:0c:11:90:c6:11 dev eno1 master vmbr0  
+01:00:5e:7f:ff:ff dev eno1 self permanent  
+33:33:00:00:00:01 dev vmbr0 self permanent  
+
+How to show the ARP table for the host . . .  
+`ip neigh show`  
+> 192.168.10.1 dev vmbr0 lladdr 00:0c:11:90:c6:11 STALE  
+> 192.168.10.2 dev vmbr0 lladdr 40:2c:ff:ec:f8:ff REACHABLE  
+> 192.168.10.100 dev vmbr0 lladdr 40:2c:ff:ec:f8:ff REACHABLE  
+
+Other userful commands  
+\# Check if interfaces are added to the bridge  
+`brctl show vmbr0`  
+
+\# Check if the interfaces are up and receiving traffic  
+`ip link show`  
+
+References:  
+https://pve.proxmox.com/pve-docs/pve-admin-guide.html#sysadmin_network_configuration  
+
+###### 3.0.1.2 Linux Bond's
+Bonds join multiple interfaces together, think port-channel/Etherchannel, link-aggregation (LACP), NIC Teaming. When you create a bond both interfaces act as one and they don't need to have there own configuration section.
+
+_Linux Bond Example_  
+![Linux-Bond-Example](images/2020/10/linux-bond-example.png)
+_via the CLI_  
+`nano /etc/network/interfaces`  
+> \# Auto is used to bring up the interfaces  
+> \# manual defines the interface with no default configuration  
+> auto eno1  
+> iface eno1 inet manual  
+> auto eno2  
+> iface eno2 inet manual  
+> 
+> \# Bonding the interfaces together using 802.3ad (LACP)  
+> auto bond0  
+> iface bond0 inet manual  
+> &nbsp;&nbsp;&nbsp;&nbsp;slaves eno1 eno2  
+> &nbsp;&nbsp;&nbsp;&nbsp;bond_miimon 100  
+> &nbsp;&nbsp;&nbsp;&nbsp;bond_mode 802.3ad  
+> &nbsp;&nbsp;&nbsp;&nbsp;bond_xmit_hash_policy layer2+3  
+> 
+> \# Create a new bridge with the bonded port  
+> auto vmbr0  
+> iface vmbr0 inet manual  
+> &nbsp;&nbsp;&nbsp;&nbsp;address 10.10.10.2  
+> &nbsp;&nbsp;&nbsp;&nbsp;netmask 255.255.255.0  
+> &nbsp;&nbsp;&nbsp;&nbsp;gateway 10.10.10.1  
+> &nbsp;&nbsp;&nbsp;&nbsp;bridge_ports bond0  
+> &nbsp;&nbsp;&nbsp;&nbsp;bridge_stp off  
+> &nbsp;&nbsp;&nbsp;&nbsp;bridge_fd 0  
+
+_via the GUI_  
+![GUI-Linux-Bond](images/2020/10/gui-linux-bond.png)
+![GUI-Linux-Bond-Bridge](images/2020/10/gui-linux-bond-bridge.png)
+
+Other userful commands  
+\# Check if interfaces are added to the bond  
+`cat /proc/net/bonding/bond1`  
+
+References:  
+https://pve.proxmox.com/pve-docs/pve-admin-guide.html#sysadmin_network_configuration  
+https://www.kernel.org/doc/Documentation/networking/bonding.txt  
+
+###### 3.0.1.3 Linux VLAN's
+
+A VLAN lets you divide up (subnet) your physical network/Interface/LAN/Bridge into separate logical ones. A benefit would be to create a guest wifi network and give friends access to the internet only (VLAN10) but nothing internal to your home network (VLAN20).
+
+
+References:  
+https://pve.proxmox.com/pve-docs/pve-admin-guide.html#sysadmin_network_configuration  
+
+###### 3
+
+### 3.1 Install Open vSwitch Switch package
+
+From the ssh terminal install the OpenvSwitch Switch package otherwise the gui will complain that its not installed when you try to create an OVS Bridge . . .  
+
+![Trying-to-create-ovs-bridge-error](images/2020/10/trying-to-create-ovs-bridge-error.png)
+
+`apt update`  
+`apt install openvswitch-switch`  
+
+
+
+
+_OpenvSwitch Bridge Example_
+> allow-ovs vmbr1  
+> 
+> iface vmbr1 inet manual  
+> &nbsp;&nbsp;&nbsp;&nbsp;ovs_type OVSBridge  
+> &nbsp;&nbsp;&nbsp;&nbsp;ovs_ports eth0 vlan1  
+
+References:  
+https://pve.proxmox.com/wiki/Open_vSwitch  
+https://www.hindawi.com/journals/jece/2016/5249421/  
+https://www.actualtechmedia.com/wp-content/uploads/2018/01/CUMULUS-Understanding-Linux-Internetworking.pdf  
+http://arthurchiao.art/blog/ovs-deep-dive-6-internal-port/  
 
 ## 4. Building ZFS Storage <a name="zfs"></a>
 
