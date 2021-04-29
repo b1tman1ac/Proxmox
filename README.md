@@ -315,7 +315,7 @@ Add the following lines to the file . . .
                url => 'https://hooks.slack.com/services/fdsafdsfdsfds/ffdsasdfsdfsdf'  
 > );  
 >  
->  my $stdin_h = do { local $/; <STDIN> };  
+>  my $stdin_h = do { local $/; \<STDIN\> };  
 >  
 >  $hook->post_ok( $stdin_h );  
 
