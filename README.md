@@ -497,15 +497,62 @@ From the ssh terminal install the OpenvSwitch Switch package otherwise the gui w
 `apt update`  
 `apt install openvswitch-switch`  
 
+You can only support Linux Bridge or Open VSwitch, so choose wisely.
 
+If you want to have OVS in the long run its best to do it now before you create any containers or VM's.
 
+The easiest way to do this would be to edit /etc/network/interfaces directly and then restart Proxmox or reload network services but first we want to make a backup.
 
+\# Make a backup  
+`cp /etc/network/interfaces /etc/network/interfaces.bak`
+
+\# Edit Networking  
+`nano /etc/network/interfaces`
+
+\# Replace the contents of the file with the below  
 _OpenvSwitch Bridge Example_
-> allow-ovs vmbr1  
-> 
-> iface vmbr1 inet manual  
+
+> \# Loopback interface  
+> &nbsp;&nbsp;&nbsp;&nbsp;auto lo  
+> &nbsp;&nbsp;&nbsp;&nbsp;iface lo inet loopback  
+>  
+> \# Bridge for our eth0 physical interfaces and vlan virtual interfaces (our VMs will  
+> \# also attach to this bridge)  
+> allow-ovs vmbr0  
+> iface vmbr0 inet manual  
 > &nbsp;&nbsp;&nbsp;&nbsp;ovs_type OVSBridge  
-> &nbsp;&nbsp;&nbsp;&nbsp;ovs_ports eth0 vlan1  
+>   \# NOTE: we MUST mention eno1, vlan11, vlan 12 and vlan999 even though each  
+>   \# of them lists ovs_bridge vmbr0!  Not sure why it needs this  
+>   \# kind of cross-referencing but it won't work without it!
+>   ovs_ports eno1 vlan11 vlan12  
+> 
+> 
+> \# Physical interface for traffic coming into the system.  Retag untagged  
+> \# traffic into vlan 1, but pass through other tags.  
+> auto eno1  
+> allow-vmbr0 eno1  
+> iface eno1 inet manual  
+> &nbsp;&nbsp;&nbsp;&nbsp;ovs_bridge vmbr0  
+> &nbsp;&nbsp;&nbsp;&nbsp;ovs_type OVSPort  
+> &nbsp;&nbsp;&nbsp;&nbsp;ovs_options tag=11 vlan_mode=native-untagged  
+> \# Alternatively if you want to also restrict what vlans are allowed through  
+> \# you could use:  
+> \# ovs_options tag=11 vlan_mode=native-untagged trunks=11,12  
+>  
+> \# Virtual interface to take advantage of originally untagged management traffic  
+> allow-vmbr0 vlan11  
+> iface vlan11 inet static  
+> &nbsp;&nbsp;&nbsp;&nbsp;ovs_type OVSIntPort  
+> &nbsp;&nbsp;&nbsp;&nbsp;ovs_bridge vmbr0  
+> &nbsp;&nbsp;&nbsp;&nbsp;ovs_options tag=11  
+> &nbsp;&nbsp;&nbsp;&nbsp;address 10.50.10.44  
+> &nbsp;&nbsp;&nbsp;&nbsp;netmask 255.255.255.0  
+> &nbsp;&nbsp;&nbsp;&nbsp;gateway 10.50.10.1  
+> &nbsp;&nbsp;&nbsp;&nbsp;ovs_mtu 1500  
+
+\# Either reload Proxmox or restart network   
+\# If doing this via ssh, be careful to do this in one command  
+`/etc/init.d/networking stop && /etc/init.d/networking start`  
 
 References:  
 https://pve.proxmox.com/wiki/Open_vSwitch  
