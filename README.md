@@ -550,7 +550,9 @@ _OpenvSwitch Bridge Example_
 > &nbsp;&nbsp;&nbsp;&nbsp;gateway 10.50.10.1  
 > &nbsp;&nbsp;&nbsp;&nbsp;ovs_mtu 1500  
 
-\# Reboot Proxmox   
+\# Either reload Proxmox or restart network   
+\# If doing this via ssh, be careful to do this in one command  
+`systemctl restart networking`  
 
 References:  
 https://pve.proxmox.com/wiki/Open_vSwitch  
